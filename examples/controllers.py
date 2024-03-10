@@ -45,7 +45,7 @@ def once[
         if not is_called:
             is_called = True
             result = func(*args, **kwargs)
-            return func(*args, **kwargs)
+            return result
         else:
             return result
 
