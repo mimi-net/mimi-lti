@@ -15,6 +15,7 @@ class LmsRequestsPool:
     issuers = {}
     session = MimiSession()
 
+    # So far, the values are selected for fun, a more flexible solution is to configure depending on a specific lms
     default_token_expires_time = datetime.timedelta(minutes=30)
     default_jwks_endpoint_expires_time = datetime.timedelta(hours=6)
 

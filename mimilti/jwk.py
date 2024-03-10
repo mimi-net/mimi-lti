@@ -43,7 +43,10 @@ class KeySchema(Schema):
 class LmsJwkClient:
     KeySchema = KeySchema()
 
-    result_expires_time = LmsRequestsPool.default_jwks_endpoint_expires_time - timedelta(seconds=20)
+    # The magic constant is 5 to ensure the relevance of the results
+    result_expires_time = (
+        LmsRequestsPool.default_jwks_endpoint_expires_time - timedelta(seconds=5)
+    )
 
     def __init__(self, data_service, config: Config):
         self._data_service = data_service

@@ -1,5 +1,7 @@
+import functools
 import os
 import pathlib
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from flask import (
@@ -11,7 +13,7 @@ from flask import (
 )
 
 
-from mimilti.grade import LineItem, GradeService, Progress
+from mimilti.grade import LineItem, GradeService, Progress, CompletedFullyGradedProgress
 from mimilti.login import LtiRequestObject
 from mimilti.data_storage import SessionDataStorage
 from mimilti.config import Config, RsaKey
@@ -30,8 +32,29 @@ config = Config(public_json_path, key)
 LmsRequestsPool.start(config)
 
 
-def get_lti_request_object():
-    pass
+def once[
+    T, **P
+](func: Callable[(P.args, P.kwargs), T]) -> Callable[(P.args, P.kwargs), T]:
+    is_called = False
+    result = None
+
+    @functools.wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        nonlocal is_called
+        nonlocal result
+        if not is_called:
+            is_called = True
+            result = func(*args, **kwargs)
+            return func(*args, **kwargs)
+        else:
+            return result
+
+    return wrapper
+
+
+@once
+def get_grade_service():
+    return GradeService(SessionDataStorage(), config, refresh=True)
 
 
 def get_jwks():
@@ -80,7 +103,7 @@ def launch():
         # you login logic
 
         if (next_url := session_data_service.get_param("next_url")) is None:
-            return redirect(url_for("index"))
+            return redirect(url_for("create_test"))
 
         else:
             session_data_service.remove_param_from_session("next_url")
@@ -118,30 +141,44 @@ def create_test():
     )
 
     grade_service.create_or_set_lineitem(lineitems)
-    return ""
+    return redirect(url_for("get_grade"))
 
 
 def get_grade():
     guid = "7262dd22-ae2b-4a88-8d29-dfcf728b2c11"
-    data_service = SessionDataStorage()
-    grade_service = GradeService(data_service, config)
+    grade_service = get_grade_service()
     print(grade_service.get_grade(guid))
     return ""
 
 
+def get_current_grade():
+    grade_service = get_grade_service()
+    print(grade_service.get_grade())
+    return ""
+
+
 def set_grade():
-    data_service = SessionDataStorage()
     guid = "7262dd22-ae2b-4a88-8d29-dfcf728b2c11"
-    grade_service = GradeService(data_service, config)
-    progress = Progress(
-        score_given=50,
+    grade_service = get_grade_service()
+    progress = CompletedFullyGradedProgress(
+        score_given=60,
         score_maximum=100,
-        activity_progress="Completed",
-        grading_progress="FullyGraded",
-        user_id=data_service.sub,
         comment="comment",
         timestamp=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
 
     grade_service.set_grade(progress, guid)
+    return ""
+
+
+def set_grade_with_current_lineitem():
+    grade_service = get_grade_service()
+    progress = CompletedFullyGradedProgress(
+        score_given=60,
+        score_maximum=100,
+        comment="comment",
+        timestamp=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+
+    grade_service.set_grade(progress)
     return ""
